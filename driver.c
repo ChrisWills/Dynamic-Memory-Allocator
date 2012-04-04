@@ -34,8 +34,7 @@ int main(void){
 	long heap_brk_before = (long) sbrk(0);
 	long heap_brk_after;
 
-	ptr = malloc(sizeof(test_t));
-	ptr2 = malloc(sizeof(test_t));
+	ptr = malloc(20);
 	heap_brk_after = (long) sbrk(0);
 
 	ptr->a = 67;
@@ -44,10 +43,22 @@ int main(void){
 	ptr->d = 70;
 	ptr->e = 71;
 
+	free(ptr);
+	
+	/*
+	ptr2 = malloc(sizeof(test_t));
+	ptr->a = 67;
+	ptr->b = 68;
+	ptr->c = 69;
+	ptr->d = 70;
+	ptr->e = 71;
+	//free(ptr2);
+
 	asprintf(&str, "%d\n", ptr->a);
 	free(str);
-	free(ptr);
 	free(ptr2);
+	*/
+	printf("sizeof(test_t) = %d\n", sizeof(test_t));
 	printf("brk_before = %d, brk_after = %d, heap_size %d \n", heap_brk_before, (long) sbrk(0), (long) sbrk(0) - heap_brk_before );
 	print_free_list();
 	return 0;
