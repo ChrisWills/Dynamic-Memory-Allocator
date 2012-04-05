@@ -18,22 +18,22 @@
 typedef struct {
 	size_t size; 					// mem requested + this struct overhead
 	struct list_head free_list;
-	short int used;
+	short int used;					// used flag - TODO merge this into a bit field inside size
 } malloc_chunk_t;
 
-// PAD to add to malloc_chunk_t struct so that mem returned to user is aligned
+/// PAD to add to malloc_chunk_t struct so that mem returned to user is aligned
 #define PAD_SIZE (BYTE_ALIGNMENT - (sizeof(malloc_chunk_t) % BYTE_ALIGNMENT))
 
-// Given a request size, returns the minimum chunk size to fullfill the request and maintain alignment
+/// Given a request size, returns the minimum chunk size to fullfill the request and maintain alignment
 #define CALC_CHUNK_SIZE(size) (size + (BYTE_ALIGNMENT - (size % BYTE_ALIGNMENT)) + sizeof(malloc_chunk_t) + PAD_SIZE) 
 
-// Smallest chunk possible
+/// Smallest chunk possible
 #define MIN_CHUNK_SIZE CALC_CHUNK_SIZE(MIN_MAL_SIZE)
 
-// converts a pointer to a chunk to a pointer to the memmory it contains 
+/// converts a pointer to a chunk to a pointer to the memmory it contains 
 #define chunk2mem(chunk) (void *)(((char *) chunk) + sizeof(malloc_chunk_t) + PAD_SIZE)
 
-// converts a pointer to memmory to a pointer to the malloc_chunk_t that represents it
+/// converts a pointer to memmory to a pointer to the malloc_chunk_t that represents it
 #define mem2chunk(mem) 	(malloc_chunk_t *)(((char *) mem) - sizeof(malloc_chunk_t) - PAD_SIZE)
 
 /// Linked list of free memmory chunks
@@ -111,12 +111,12 @@ static void *sys_malloc(size_t size){
 		brk_increase = new_chunk_size;
 	}
 
-	/* Increase heap size */
+	// Increase heap size
 	if( (new_chunk_ptr = (malloc_chunk_t *) sbrk(brk_increase)) < 0){
 		return NULL;
 	}
 
-	/* Setup chunk metadata */
+	// Setup chunk metadata 
 	new_chunk_ptr->size = brk_increase;
 	
 	return (void *) use_free_chunk(new_chunk_ptr, size);
@@ -155,7 +155,7 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
  * @target_chunk: free()'ed chunk with which to attempt merger
  * FIXME: currently can only merge with chunks following target in heap
  */
-void merge_adjacent(malloc_chunk_t *target_chunk){
+static void merge_adjacent(malloc_chunk_t *target_chunk){
 	malloc_chunk_t *prev_chunk;
 	malloc_chunk_t *next_chunk;
 	bool target_is_first;
@@ -192,7 +192,6 @@ void merge_adjacent(malloc_chunk_t *target_chunk){
 
 	return;
 }
-
 
 /**
  * my_malloc - Custom malloc() that implements the "worst fit" algo.
@@ -237,7 +236,6 @@ void *my_malloc(size_t size){
  */
 void my_free(void *ptr){
 	malloc_chunk_t *target_chunk;
-	malloc_chunk_t *cur_chunk;
 
 	if(ptr == NULL){
 		return;
@@ -246,7 +244,7 @@ void my_free(void *ptr){
 	target_chunk = mem2chunk(ptr);
 
 #ifdef MALLOC_DETECT_DOUBLE_FREE
-	if(target_chunk->used == false){
+	if(!target_chunk->used){
 			fprintf(stderr, "ERROR in my_free(): double-free detected\n");
 			exit(1);
 			return;
