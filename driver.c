@@ -6,59 +6,60 @@
 
 #include "malloc.h"
 
+int num_mallocs = 0;
+int num_frees = 0;
+
 void* malloc(size_t sz){
-    void *(*libc_malloc)(size_t) = dlsym(RTLD_NEXT, "malloc");
-    printf("malloc\n");
+    //void *(*libc_malloc)(size_t) = dlsym(RTLD_NEXT, "malloc");
+	num_mallocs++;
     return my_malloc(sz);
 }
 
 void free(void *p){
-    void (*libc_free)(void*) = dlsym(RTLD_NEXT, "free");
-    printf("free\n");
+    //void (*libc_free)(void*) = dlsym(RTLD_NEXT, "free");
+    num_frees++;
     my_free(p);
 }
 
-typedef struct{
-	int a;
-	int b;
-	int c;
-	int d;
-	int e;
-} test_t;
-
-
 int main(void){
-	test_t *ptr,*ptr2;
-	char *str;
 	long heap_brk_before = (long) sbrk(0);
-	long heap_brk_after;
+	int i;
+	char *ptrs[100];
 
-	ptr = malloc(20);
-	heap_brk_after = (long) sbrk(0);
+	for(i=0; i < 100; i++){
+		char *buf;
+		int bytes = rand() % 8192;
+//		printf("mallocing %d bytes\n",bytes);
+		buf = malloc(bytes);
+//		printf("%ld\n", (long int) buf % 8);
+		ptrs[i] = buf;
+	}
 
-	ptr->a = 67;
-	ptr->b = 68;
-	ptr->c = 69;
-	ptr->d = 70;
-	ptr->e = 71;
-
-	free(ptr);
-//	free(ptr);
+	for(i=0; i < 100; i++){
+		free(ptrs[i]);
+	}
 	
-	/*
-	ptr2 = malloc(sizeof(test_t));
-	ptr->a = 67;
-	ptr->b = 68;
-	ptr->c = 69;
-	ptr->d = 70;
-	ptr->e = 71;
-	//free(ptr2);
+	/*	
+	for(i=99; i>=0 ; i--){
+		free(ptrs[i]);
+	}
+*/
+	printf("num_mallocs = %d, num_frees = %d\n", num_mallocs, num_frees);	
+	printf("brk_before = %d, brk_after = %d, heap_size %d \n", heap_brk_before, (long) sbrk(0), (long) sbrk(0) - heap_brk_before );
 
-	asprintf(&str, "%d\n", ptr->a);
-	free(str);
-	free(ptr2);
-	*/
-	printf("sizeof(test_t) = %d\n", sizeof(test_t));
+	for(i=0; i < 100; i++){
+		char *buf;
+		int bytes = rand() % 8192;
+		//printf("mallocing %d bytes\n",bytes);
+		buf = malloc(bytes);
+		//free(buf);
+		ptrs[i] = buf;
+	}
+	
+	for(i=0; i < 100; i++){
+		free(ptrs[i]);
+	}
+	
 	printf("brk_before = %d, brk_after = %d, heap_size %d \n", heap_brk_before, (long) sbrk(0), (long) sbrk(0) - heap_brk_before );
 	print_free_list();
 	return 0;
