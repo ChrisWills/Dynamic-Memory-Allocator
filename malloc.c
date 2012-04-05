@@ -246,12 +246,10 @@ void my_free(void *ptr){
 	target_chunk = mem2chunk(ptr);
 
 #ifdef MALLOC_DETECT_DOUBLE_FREE
-	list_for_each_entry(cur_chunk, &free_list, free_list){
-		if(cur_chunk == target_chunk){
+	if(target_chunk->used == false){
 			fprintf(stderr, "ERROR in my_free(): double-free detected\n");
 			exit(1);
 			return;
-		}
 	}
 #endif
 	target_chunk->used = false;
