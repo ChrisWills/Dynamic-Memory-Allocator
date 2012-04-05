@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include "list.h"
 #include "malloc.h"
 
@@ -17,6 +18,7 @@
 typedef struct {
 	size_t size; 					// mem requested + this struct overhead
 	struct list_head free_list;
+	short int used;
 } malloc_chunk_t;
 
 #define PAD_SIZE (sizeof(malloc_chunk_t) % BYTE_ALIGNMENT)
@@ -71,9 +73,11 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 		target_chunk->size = CALC_CHUNK_SIZE(size);
 		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
 		new_free_chunk->size = new_free_chunk_size;
+		new_free_chunk->used = false;   
 		list_add(&(new_free_chunk->free_list), &free_list);	
 	}
-
+	
+	target_chunk->used = true;
 	return chunk2mem(target_chunk);
 }
 
@@ -181,10 +185,12 @@ void my_free(void *ptr){
 			return;
 		}
 	}
-#endif	
+#endif
+	target_chunk->used = false;
 	list_add(&(target_chunk->free_list), &free_list);	
 
 	return;
 }
+
 
 
