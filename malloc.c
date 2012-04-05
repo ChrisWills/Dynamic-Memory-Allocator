@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-
 #include "list.h"
 #include "malloc.h"
 
@@ -26,6 +25,7 @@ static struct list_head free_list = LIST_HEAD_INIT(free_list);
 /**
  * print_free_list - Prints out "chunk <size>\n" for each chunk in the free list. Used for debugging only.
  */
+#ifdef MALLOC_DEBUG
 void print_free_list(void){
 	struct list_head *pos;
 	malloc_chunk_t *cur_chunk;
@@ -36,7 +36,7 @@ void print_free_list(void){
 		printf("chunk: size = %d\n", cur_chunk->size);
 	}
 }
-
+#endif
 /**
  * use_free_chunk - Given a free_chunk of adequate size, fullfill the size request with that chunk.
  * 					Split the chunk and put the unused portion back in the free_list if possible.
@@ -119,9 +119,6 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
 	return worst_fit_chunk;
 }
 
-
-
-
 /**
  * my_malloc - Custom malloc() that implements the "worst fit" algo.
  * @size: size of requested memmory in bytes
@@ -134,7 +131,7 @@ void *my_malloc(size_t size){
 		size = MIN_MAL_SIZE;
 	}
 
-	printf("malloc input size = %d\n", size);
+	//printf("malloc input size = %d\n", size);
 
 	// Try to find a free chunk to fullfill request
 	if( (worst_fit_chunk = get_worst_fit_chunk(size)) == NULL){
@@ -148,13 +145,31 @@ void *my_malloc(size_t size){
 }
 
 /**
- * my_free - Custom free() that works with the above custom malloc().
+ * my_free -	Custom free() that works with the above custom malloc().
+ *				Double free()s are detected but invalid pointers are not 
+ *				and result in undefined (aka very bad) behavior.
  * @ptr: pointer to the memory block that was malloc()'ed.
  */
 void my_free(void *ptr){
-	malloc_chunk_t *chunk_ptr = (malloc_chunk_t *) ((char *) ptr - sizeof(malloc_chunk_t));
+	malloc_chunk_t *target_chunk;
+	malloc_chunk_t *cur_chunk;
 
-	list_add(&(chunk_ptr->free_list), &free_list);	
+	if(ptr == NULL){
+		return;
+	}
+	
+	target_chunk = (malloc_chunk_t *) ((char *) ptr - sizeof(malloc_chunk_t));
+
+#ifdef MALLOC_DETECT_DOUBLE_FREE
+	list_for_each_entry(cur_chunk, &free_list, free_list){
+		if(cur_chunk == target_chunk){
+			fprintf(stderr, "ERROR in my_free(): double-free detected\n");
+			exit(1);
+			return;
+		}
+	}
+#endif	
+	list_add(&(target_chunk->free_list), &free_list);	
 
 	return;
 }

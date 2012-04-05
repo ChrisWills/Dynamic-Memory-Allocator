@@ -18,7 +18,6 @@ void free(void *p){
     my_free(p);
 }
 
-
 typedef struct{
 	int a;
 	int b;
@@ -44,6 +43,7 @@ int main(void){
 	ptr->e = 71;
 
 	free(ptr);
+//	free(ptr);
 	
 	/*
 	ptr2 = malloc(sizeof(test_t));
