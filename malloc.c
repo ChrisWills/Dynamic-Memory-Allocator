@@ -37,13 +37,12 @@ static struct list_head free_list = LIST_HEAD_INIT(free_list);
  */
 #ifdef MALLOC_DEBUG
 void print_free_list(void){
-	struct list_head *pos;
 	malloc_chunk_t *cur_chunk;
 
-	printf("sizeof(malloc_chunk_t) = %d\n", sizeof(malloc_chunk_t));
+	printf("sizeof(malloc_chunk_t) = %lu\n", sizeof(malloc_chunk_t));
 
 	list_for_each_entry(cur_chunk, &free_list, free_list){
-		printf("chunk: size = %d\n", cur_chunk->size);
+		printf("chunk: size = %ld\n", (long int) cur_chunk->size);
 	}
 }
 #endif
@@ -85,7 +84,6 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 static void *sys_malloc(size_t size){
 	size_t new_chunk_size;
 	malloc_chunk_t *new_chunk_ptr;
-	void *res_ptr;
 	size_t brk_increase;
 
 	new_chunk_size = CALC_CHUNK_SIZE(size);
