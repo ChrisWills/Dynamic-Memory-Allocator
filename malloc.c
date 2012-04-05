@@ -4,20 +4,30 @@
 #include "list.h"
 #include "malloc.h"
 
+/// Fullfill all requests with the given byte alignment
+#define BYTE_ALIGNMENT 8
+
+/// Even when malloc(0) is called, at minimum the a pointer to the following number of bytes is returned
+#define MIN_MAL_SIZE BYTE_ALIGNMENT
+
+/// Minimum brk increase in bytes
+#define MIN_BRK_INCREASE 8192
+
 /// memmory chunk metadata structure
 typedef struct {
 	size_t size; 					// mem requested + this struct overhead
 	struct list_head free_list;
 } malloc_chunk_t;
 
-/// Even when malloc(0) is called, at minimum the a pointer to the following number of bytes is returned
-#define MIN_MAL_SIZE 8
+#define PAD_SIZE (sizeof(malloc_chunk_t) % BYTE_ALIGNMENT)
 
-/// Minimum brk increase in bytes
-#define MIN_BRK_INCREASE 8192
+#define CALC_CHUNK_SIZE(size) (size + (size % BYTE_ALIGNMENT) + sizeof(malloc_chunk_t) + PAD_SIZE) 
 
-/// The smallest chunk that can be created by a malloc call
-#define MIN_SIZE (sizeof(malloc_chunk_t) + MIN_MAL_SIZE)
+#define MIN_CHUNK_SIZE (MIN_MAL_SIZE + sizeof(malloc_chunk_t) + PAD_SIZE)
+
+#define chunk2mem(chunk) (void *)(((char *) chunk) + sizeof(malloc_chunk_t) + PAD_SIZE)
+
+#define mem2chunk(mem) 	(malloc_chunk_t *)(((char *) mem) - sizeof(malloc_chunk_t) + PAD_SIZE)
 
 /// Linked list of free memmory chunks
 static struct list_head free_list = LIST_HEAD_INIT(free_list); 
@@ -51,21 +61,21 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 		return NULL;
 	}
 
-	if(target_chunk->size < (size + sizeof(malloc_chunk_t))){
+	if(target_chunk->size < (CALC_CHUNK_SIZE(size))){
 		return NULL;
 	}
 
-	new_free_chunk_size = target_chunk->size - (size + sizeof(malloc_chunk_t));
+	new_free_chunk_size = target_chunk->size - CALC_CHUNK_SIZE(size);
 
 	// If chunk is big enough split it and add unused portion back to free_list
-	if(new_free_chunk_size >= (MIN_MAL_SIZE + sizeof(malloc_chunk_t))){
-		target_chunk->size = size + sizeof(malloc_chunk_t);
+	if(new_free_chunk_size >= MIN_CHUNK_SIZE){
+		target_chunk->size = CALC_CHUNK_SIZE(size);
 		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
 		new_free_chunk->size = new_free_chunk_size;
 		list_add(&(new_free_chunk->free_list), &free_list);	
 	}
 
-	return (void *) ((char *) target_chunk + sizeof(malloc_chunk_t));
+	return chunk2mem(target_chunk);
 }
 
 /**
@@ -78,7 +88,7 @@ static void *sys_malloc(size_t size){
 	void *res_ptr;
 	size_t brk_increase;
 
-	new_chunk_size = sizeof(malloc_chunk_t) + size;
+	new_chunk_size = CALC_CHUNK_SIZE(size);
 
 	if(new_chunk_size <= MIN_BRK_INCREASE){
 		brk_increase = MIN_BRK_INCREASE;
@@ -100,7 +110,7 @@ static void *sys_malloc(size_t size){
 }
 
 static malloc_chunk_t *get_worst_fit_chunk(size_t size){
-	size_t min_chunk_size = size + sizeof(malloc_chunk_t);
+	size_t min_chunk_size = CALC_CHUNK_SIZE(size);
 	size_t worst_fit_size = 0;
 	malloc_chunk_t *worst_fit_chunk = NULL;
 	malloc_chunk_t *cur_chunk;
@@ -130,6 +140,10 @@ void *my_malloc(size_t size){
 	if(size < MIN_MAL_SIZE){
 		size = MIN_MAL_SIZE;
 	}
+	
+	// Pad size to maintain byte alignment
+	size = size + (size % BYTE_ALIGNMENT);
+
 
 	//printf("malloc input size = %d\n", size);
 
@@ -158,7 +172,8 @@ void my_free(void *ptr){
 		return;
 	}
 	
-	target_chunk = (malloc_chunk_t *) ((char *) ptr - sizeof(malloc_chunk_t));
+	//target_chunk = (malloc_chunk_t *) ((char *) ptr - sizeof(malloc_chunk_t));
+	target_chunk = mem2chunk(ptr);
 
 #ifdef MALLOC_DETECT_DOUBLE_FREE
 	list_for_each_entry(cur_chunk, &free_list, free_list){
