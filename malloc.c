@@ -125,7 +125,7 @@ static void *sys_malloc(size_t size){
 	}
 
 	// Increase heap size
-	if( (new_chunk_ptr = (malloc_chunk_t *) sbrk(brk_increase)) < 0){
+	if( (new_chunk_ptr = (malloc_chunk_t *) sbrk(brk_increase)) == (void *) -1){
 		return NULL;
 	}
 
