@@ -203,7 +203,6 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 	if( (target_chunk == heap_head) && (target_chunk == heap_tail)){
 		return;
 	}
-	
 	// chunk is not at the end of heap space, so there is def. a chunk following it
 	if(!(target_chunk == heap_tail)){
 		next_chunk = (malloc_chunk_t *)((char *)target_chunk + target_chunk->size);
@@ -221,8 +220,10 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 			}
 		}
 	}
-	
+		
+/*	
 	// chunk is not at the head of heap space, so a chunk def. preceeds it
+	// BUG IN THIS SECTION - START
 	if(!(target_chunk == heap_head)){
 		prev_chunk = (malloc_chunk_t *)((char *)target_chunk - target_chunk->prev_size);
 
@@ -238,6 +239,8 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 			}
 		}
 	}
+	// BUG IN THIS SECTION - END
+*/
 	return;
 }
 
@@ -291,7 +294,7 @@ void *malloc(size_t size){
 	int sz;
 	malloc_chunk_t *worst_fit_chunk;
 
-	//printf("calling mymalloc()\n");
+	//fprintf(stderr,"calling mymalloc()\n");
 
 	// Check request in bounds
 	if(size < MIN_MAL_SIZE){
@@ -386,9 +389,10 @@ void *realloc(void *ptr, size_t size){
 	new_chunk_size = CALC_CHUNK_SIZE(size);
 	size_diff = target_chunk->size - new_chunk_size;
 
-	if(size_diff >= MIN_CHUNK_SIZE){
+	/*
+	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE) ){
 		//split chunk and free extra
-		malloc_chunk_t * new_free_chunk;
+		malloc_chunk_t *new_free_chunk;
 		
 		target_chunk->size = new_chunk_size;
 		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
@@ -398,18 +402,19 @@ void *realloc(void *ptr, size_t size){
 		}
 
 		new_free_chunk->prev_size = target_chunk->size;
-		new_free_chunk->size = new_chunk_size;
+		new_free_chunk->size = size_diff;
 		new_free_chunk->used = false;
 		list_add(&(new_free_chunk->free_list), &free_list);
 		
 		return chunk2mem(target_chunk);
 	}
-	else if(size_diff < MIN_CHUNK_SIZE && size_diff >= 0){
+	else if(target_chunk->size > new_chunk_size && target_chunk->size < (new_chunk_size + MIN_CHUNK_SIZE)){
 		//enough space in current chunk, do nothing
 		return chunk2mem(target_chunk);
 	}
 	else {
- 		// diff_size < 0, we need a new larger chunk
+ 	*/
+		// diff_size < 0, we need a new larger chunk
 		void *new_mem = malloc(size);
 	
 		if(new_mem == NULL){
@@ -421,5 +426,5 @@ void *realloc(void *ptr, size_t size){
 		free(ptr);
 
 		return new_mem;
-	}
+	//}
 }
