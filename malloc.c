@@ -10,8 +10,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <string.h>
 #include "list.h"
 #include "malloc.h"
+
 
 /// Fullfill all requests with the given byte alignment
 #define BYTE_ALIGNMENT 8
@@ -345,4 +347,72 @@ void free(void *ptr){
 	return;
 }
 
+void *calloc(size_t nmemb, size_t size){
+	size_t tot_mem = nmemb * size;
+	void *mem;
+	
+	if(tot_mem < MIN_MAL_SIZE){
+		tot_mem = MIN_MAL_SIZE;
+	}
+	
+	mem = malloc(tot_mem);
 
+	return memset(mem, '\0', tot_mem);
+}
+
+void *realloc(void *ptr, size_t size){
+	malloc_chunk_t *target_chunk;
+	size_t new_chunk_size;
+	long long int size_diff;
+	void *mem;
+
+	if(ptr == NULL){
+		return malloc(size);
+	}
+	
+	if(size == 0){
+		free(ptr);
+		return NULL;
+	}
+
+	if(size < MIN_MAL_SIZE){
+		size = MIN_MAL_SIZE;
+	}
+
+	target_chunk = mem2chunk(ptr);
+	new_chunk_size = CALC_CHUNK_SIZE(size);
+	size_diff = target_chunk->size - new_chunk_size;
+
+	if(size_diff >= MIN_CHUNK_SIZE){
+		//split chunk and free extra
+		malloc_chunk_t * new_free_chunk;
+		
+		target_chunk->size = new_chunk_size;
+		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
+
+		if(target_chunk == heap_tail){
+			heap_tail = new_free_chunk;
+		}
+
+		new_free_chunk->prev_size = target_chunk->size;
+		new_free_chunk->size = new_chunk_size;
+		new_free_chunk->used = false;
+		list_add(&(new_free_chunk->free_list), &free_list);
+		
+		return chunk2mem(target_chunk);
+	}
+	else if(size_diff < MIN_CHUNK_SIZE && size_diff >= 0){
+		//enough space in current chunk, do nothing
+		return chunk2mem(target_chunk);
+	}
+	else {
+ 		// diff_size < 0, we need a new larger chunk
+		void *new_mem = malloc(size);
+		
+		memcpy(new_mem, ptr, size);
+
+		free(ptr);
+
+		return new_mem;
+	}
+}
