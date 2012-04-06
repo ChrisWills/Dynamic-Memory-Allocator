@@ -42,3 +42,5 @@ TODO
 		* Make properties such as byte alignment, minimum allocation
 		  size tunable.
 		* Write comprehensive test suite.
+		* Implement realloc() and calloc() so that arbitrary programs
+		  can be forced to use this lib via LD_PRELOAD.
