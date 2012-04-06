@@ -1,4 +1,11 @@
 /*
+ * Title: Dynamic Memory Allocator 
+ * Author: Christian Wills <cwills.dev@gmail.com>
+ * License: GPLv2 (see COPYING)
+ * File: malloc.h
+ */
+
+/*
 	** Compile time options **
 	
 	Option						Default_Value			Description

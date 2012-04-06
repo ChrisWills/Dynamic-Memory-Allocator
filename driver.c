@@ -1,3 +1,9 @@
+/*
+ * Title: Dynamic Memory Allocator 
+ * Author: Christian Wills <cwills.dev@gmail.com>
+ * License: GPLv2 (see COPYING)
+ * File: driver.c
+ */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>

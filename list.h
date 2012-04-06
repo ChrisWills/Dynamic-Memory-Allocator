@@ -1,8 +1,24 @@
 #ifndef LIST_H
 #define LIST_H
 /*
+ * Title: Linked list from Linux Kernel version 3.3 (see description below)  
+ * Author: Christian Wills <cwills.dev@gmail.com>
+ * License: GPLv2 (see COPYING)
+ * File: list.h
+ */
+
+/*
  * Simple doubly linked list implementation extracted directly from the 3.3 Linux Kernel.
- * Tweaked slightly to work in userland and remove dependence on other source kernel files.
+ * It has been tweaked slightly to work in user-land and remove dependence on other source kernel files.
+ *
+ * This file is the result of adapting the following source files relative to the kernel source tree: 
+ * 		mainly: include/linux/list.h
+ * 		struct list_head: include/linux/types.h
+ * 		list_entry via container_of in: include/linux/kernel.h
+ * 
+ * Since the Linux Kernel is released under the GPL, this file is also released
+ * under the GPL and a copy of the license can be found with this source code
+ * package. See the file 'COPYING'.
  */
 
 #include <stddef.h>
