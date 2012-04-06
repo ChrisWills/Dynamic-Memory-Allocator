@@ -10,7 +10,7 @@ driver.o: driver.c
 	$(CC) $(CFLAGS) $(DEFINES) -c driver.c
 
 malloc.so: malloc.c malloc.h list.h
-	$(CC) -fPIC -shared $(CFLAGS) $(DEFINES) malloc.c -o libmymalloc.so 
+	$(CC) -fPIC -shared $(CFLAGS) $(DEFINES) -o libmymalloc.so malloc.c 
 
 clean:
 	rm -f driver
