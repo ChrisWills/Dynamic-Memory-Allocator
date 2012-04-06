@@ -14,8 +14,12 @@
 /// Minimum brk increase in bytes
 #define MIN_BRK_INCREASE 8192
 
+/// Minimum brk decrease in bytes
+#define MIN_BRK_DECREASE 8192
+
 /// memmory chunk metadata structure
 typedef struct {
+	size_t prev_size;
 	size_t size; 					// mem requested + this struct overhead
 	struct list_head free_list;
 	short int used;					// used flag - TODO merge this into a bit field inside size
@@ -40,8 +44,10 @@ typedef struct {
 static struct list_head free_list = LIST_HEAD_INIT(free_list); 
 
 /// Start of the heap, set on first call to malloc()
-static void *heap_start = NULL;
+static malloc_chunk_t *heap_head = NULL;
 
+/// Last chunk on the heap
+static malloc_chunk_t *heap_tail = NULL;
 
 #ifdef MALLOC_DEBUG
 /**
@@ -53,7 +59,7 @@ void print_free_list(void){
 	printf("sizeof(malloc_chunk_t) = %lu\n", sizeof(malloc_chunk_t));
 	int list_len = 0;
 	list_for_each_entry(cur_chunk, &free_list, free_list){
-		printf("chunk: size = %ld, used: %d, self: %ld next: %ld, prev: %ld\n", (long int) cur_chunk->size, cur_chunk->used, cur_chunk, cur_chunk->free_list.next, cur_chunk->free_list.prev);
+		printf("chunk: size = %ld, prev_size: %ld, used: %d, self: %ld next: %ld, prev: %ld\n", (long int) cur_chunk->size, cur_chunk->prev_size, cur_chunk->used, cur_chunk, cur_chunk->free_list.next, cur_chunk->free_list.prev);
 		list_len++;
 	}
 	printf("list_len: %d\n", list_len);
@@ -84,6 +90,12 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 	if(new_free_chunk_size >= MIN_CHUNK_SIZE){
 		target_chunk->size = CALC_CHUNK_SIZE(size);
 		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
+
+		if(target_chunk == heap_tail){
+			heap_tail = new_free_chunk;
+		}
+		
+		new_free_chunk->prev_size = target_chunk->size;
 		new_free_chunk->size = new_free_chunk_size;
 		new_free_chunk->used = false;   
 		list_add(&(new_free_chunk->free_list), &free_list);	
@@ -102,6 +114,7 @@ static void *sys_malloc(size_t size){
 	malloc_chunk_t *new_chunk_ptr;
 	size_t brk_increase;
 
+
 	new_chunk_size = CALC_CHUNK_SIZE(size);
 
 	if(new_chunk_size <= MIN_BRK_INCREASE){
@@ -116,8 +129,21 @@ static void *sys_malloc(size_t size){
 		return NULL;
 	}
 
+	// first call to malloc(), set heap start for later
+	if(heap_head == NULL){
+		heap_head = new_chunk_ptr;
+	}
+
 	// Setup chunk metadata 
 	new_chunk_ptr->size = brk_increase;
+	if(heap_tail == NULL){
+		new_chunk_ptr->prev_size = 0;
+		heap_tail = new_chunk_ptr;
+	}
+	else {
+		new_chunk_ptr->prev_size = heap_tail->size;
+		heap_tail = new_chunk_ptr;
+	}
 	
 	return (void *) use_free_chunk(new_chunk_ptr, size);
 }
@@ -153,43 +179,97 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
 /**
  * merge_adjacent - Merge current free()'ed chunk with adjacent free chunks if any.
  * @target_chunk: free()'ed chunk with which to attempt merger
- * FIXME: currently can only merge with chunks following target in heap
  */
 static void merge_adjacent(malloc_chunk_t *target_chunk){
 	malloc_chunk_t *prev_chunk;
 	malloc_chunk_t *next_chunk;
-	bool target_is_first;
-	bool target_is_last;
+	malloc_chunk_t *next_next_chunk;
 
 	if(target_chunk == NULL){
 		return;
 	}
 
-	target_is_first = (target_chunk == heap_start); 
-	target_is_last = (((char *)target_chunk + target_chunk->size) == sbrk(0));
-
 	// target is the only free chunk - nothing to do
-	if(target_is_first && target_is_last){
+	if( (target_chunk == heap_head) && (target_chunk == heap_tail)){
 		return;
 	}
 	
 	// chunk is not at the end of heap space, so there is def. a chunk following it
-	if(!target_is_last){
+	if(!(target_chunk == heap_tail)){
 		next_chunk = (malloc_chunk_t *)((char *)target_chunk + target_chunk->size);
 		
 		// if next chunk is free merge with target
-		if(next_chunk->used != true){
+		if(!next_chunk->used){
 			__list_del_entry(&(next_chunk->free_list));
 			target_chunk->size += next_chunk->size;
+			if(next_chunk == heap_tail){
+				heap_tail = target_chunk;
+			}
+			else{
+				next_next_chunk = (malloc_chunk_t *)((char *)target_chunk + target_chunk->size);
+				next_next_chunk->prev_size = target_chunk->size;
+			}
 		}
 	}
 	
-	/*
-	if(!target_is_first){
-		// TODO - malloc_chunk_t needs size of previous chunk for this to work.	
-	}
-	*/
+	// chunk is not at the head of heap space, so a chunk def. preceeds it
+	if(!(target_chunk == heap_head)){
+		prev_chunk = (malloc_chunk_t *)((char *)target_chunk - target_chunk->prev_size);
 
+		if(!prev_chunk->used){
+			__list_del_entry(&(target_chunk->free_list));
+			prev_chunk->size += target_chunk->size;
+			if(target_chunk == heap_tail){
+				heap_tail = prev_chunk;
+			}
+			else {
+				next_next_chunk = (malloc_chunk_t *)((char *)prev_chunk + prev_chunk->size);
+				next_next_chunk->prev_size = prev_chunk->size;
+			}
+		}
+	}
+	return;
+}
+
+/*
+ * shrink_brk - Merge contiguous tail free chunks and if the resulting chunk is > MIN_BRK_DECREASE,
+ *				delete the large free chunk and shrink the heap.
+ */
+static void shrink_brk(void){
+	malloc_chunk_t *prev_chunk = (malloc_chunk_t *) ((char *)heap_tail - heap_tail->prev_size);
+	size_t shrink_counter = 0;
+
+	if(heap_tail->used){
+		return;
+	}
+	
+	shrink_counter += heap_tail->size;
+
+	while(!prev_chunk->used){
+		shrink_counter += prev_chunk->size;
+		__list_del_entry(&(heap_tail->free_list));
+		prev_chunk->size += heap_tail->size;
+		heap_tail = prev_chunk;
+		if(heap_tail->prev_size == 0){
+			break;
+		}
+		prev_chunk = (malloc_chunk_t *) ((char *) heap_tail - heap_tail->prev_size);
+	}
+	
+	if(shrink_counter >= MIN_BRK_DECREASE){
+		__list_del_entry(&(heap_tail->free_list));
+		
+		if(heap_tail == heap_head){
+			heap_tail = NULL;
+			heap_head = NULL;
+		}
+		else {
+			heap_tail = (malloc_chunk_t *) ((char *)heap_tail - heap_tail->prev_size);
+		}
+		
+		sbrk(-1*shrink_counter);
+	}
+	
 	return;
 }
 
@@ -201,10 +281,6 @@ void *my_malloc(size_t size){
 	int sz;
 	malloc_chunk_t *worst_fit_chunk;
 	
-	// set heap start for later
-	if(heap_start == NULL){
-		heap_start = sbrk(0);
-	}
 
 	// Check request in bounds
 	if(size < MIN_MAL_SIZE){
@@ -254,6 +330,8 @@ void my_free(void *ptr){
 	list_add(&(target_chunk->free_list), &free_list);	
 
 	merge_adjacent(target_chunk);
+
+	shrink_brk();
 
 	return;
 }

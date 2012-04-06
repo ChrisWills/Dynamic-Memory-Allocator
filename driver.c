@@ -36,6 +36,7 @@ int main(void){
 	}
 
 	for(i=0; i < 100; i++){
+		//if(i != 53)
 		free(ptrs[i]);
 	}
 	
@@ -57,9 +58,9 @@ int main(void){
 	}
 	
 	for(i=0; i < 100; i++){
+		//if(i != 78)
 		free(ptrs[i]);
 	}
-	
 	printf("brk_before = %d, brk_after = %d, heap_size %d \n", heap_brk_before, (long) sbrk(0), (long) sbrk(0) - heap_brk_before );
 	print_free_list();
 	return 0;
