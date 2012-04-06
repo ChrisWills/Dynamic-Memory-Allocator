@@ -2,8 +2,10 @@ NAME
 		A dynamic memory allocator using the worst fit algorithm
 
 SYNOPSIS
+		void *calloc(size_t nmemb, size_t size);
 		void *malloc(size_t size);
 		void free(void *ptr);
+		void *realloc(void *ptr, size_t size);
 
 DESCRIPTION
 		malloc() allocates size bytes and returns a pointer to the
@@ -20,6 +22,16 @@ DESCRIPTION
 		passed to free() undefined behavior occurs. If a NULL
 		pointer is passed, free() returns immediately with no side
 		effects.
+		
+		calloc() allocates enough space for nmemb items of size bytes
+		each and the initializes the memmory with zeros.
+
+		realloc() acts just like malloc() if ptr is NULL and just like
+		free() if size is 0. Otherwise, realloc() resizes the memory
+		block pointed to by ptr to match size. This may result in a
+		new block being allocated and the contents of ptr copied to
+		the new location. realloc() returns a ptr to the resized
+		memory block. 
 
 FEATURES
 		* All memory segments returned by malloc() are 8-byte
@@ -42,5 +54,3 @@ TODO
 		* Make properties such as byte alignment, minimum allocation
 		  size tunable.
 		* Write comprehensive test suite.
-		* Implement realloc() and calloc() so that arbitrary programs
-		  can be forced to use this lib via LD_PRELOAD.
