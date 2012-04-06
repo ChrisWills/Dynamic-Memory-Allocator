@@ -40,6 +40,7 @@ FEATURES
 		  and immediate program exit.  
 		* As blocks of memory are freed, the heap size
 		* shrinks to minimum size.
+		* Set errno on allocation error to match the glibc API
 
 USAGE
 		This implementation of malloc() and free() is packaged as a
