@@ -2,38 +2,43 @@ NAME
 		A dynamic memory allocator using the worst fit algorithm
 
 SYNOPSIS
-		void *my_malloc(size_t size);
-		void my_free(void *ptr);
+		void *malloc(size_t size);
+		void free(void *ptr);
 
 DESCRIPTION
-		my_malloc() allocates size bytes and returns a pointer to the
+		malloc() allocates size bytes and returns a pointer to the
 		allocated memory. The pointer returned can later be passed to
-		my_free() which de-allocates the memory. my_malloc() returns
+		free() which de-allocates the memory. malloc() returns
 		NULL if the memory allocation failed. This may occur if the
 		system is out of memory or the process has exceeded it memory
 		limit(see getrlimit(2)).
 
-		my_free() frees the memory segment pointed to by pointer which
-		must point to an address previously returned by my_malloc().
+		free() frees the memory segment pointed to by pointer which
+		must point to an address previously returned by malloc().
 		If another pointer is passed undefined behavior occurs. If a
-		pointer to a memory segment that has alreaded been freed is
-		passed to my_free() undefined behavoir occurs. If a NULL
-		pointer is passed, my_free() returns immediately with no side
+		pointer to a memory segment that has already been freed is
+		passed to free() undefined behavior occurs. If a NULL
+		pointer is passed, free() returns immediately with no side
 		effects.
 
 FEATURES
-		* All memory segments returned by my_malloc() are 8-byte
+		* All memory segments returned by malloc() are 8-byte
 		  aligned.
 		* Double-frees are caught and handled with an error message
 		  and immediate program exit.  
 		* As blocks of memory are freed, the heap size
 		* shrinks to minimum size.
 
+USAGE
+		This implementation of malloc() and free() is packaged as a
+		shared library. Linking to this library overrides the malloc()
+		and free() implementation in glibc.
+
 TODO
-		* Optimize malloc_chunk_t struct for size by incorperating the
+		* Optimize malloc_chunk_t struct for size by incorporating the
 		  'used' flag inside 'size' as a bit-field.  
 		* Include other optional memory chunk re-use algorithms
-		  besides 'worst fit' 
+		  besides 'worst fit'. 
 		* Make properties such as byte alignment, minimum allocation
-		  size tuneable.
-
+		  size tunable.
+		* Write comprehensive test suite.

@@ -274,13 +274,14 @@ static void shrink_brk(void){
 }
 
 /**
- * my_malloc - Custom malloc() that implements the "worst fit" algo.
+ * malloc - Custom malloc() that implements the "worst fit" algo.
  * @size: size of requested memmory in bytes
  */ 
-void *my_malloc(size_t size){
+void *malloc(size_t size){
 	int sz;
 	malloc_chunk_t *worst_fit_chunk;
-	
+
+	//printf("calling mymalloc()\n");
 
 	// Check request in bounds
 	if(size < MIN_MAL_SIZE){
@@ -305,12 +306,12 @@ void *my_malloc(size_t size){
 }
 
 /**
- * my_free -	Custom free() that works with the above custom malloc().
+ * free -	Custom free() that works with the above custom malloc().
  *				Double free()s are detected but invalid pointers are not 
  *				and result in undefined (aka very bad) behavior.
  * @ptr: pointer to the memory block that was malloc()'ed.
  */
-void my_free(void *ptr){
+void free(void *ptr){
 	malloc_chunk_t *target_chunk;
 
 	if(ptr == NULL){

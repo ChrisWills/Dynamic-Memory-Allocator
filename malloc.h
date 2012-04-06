@@ -10,9 +10,9 @@
 
 #include <stddef.h>
 
-void *my_malloc(size_t size);
+void *malloc(size_t size);
 
-void my_free(void *ptr);
+void free(void *ptr);
 
 #ifdef MALLOC_DEBUG
 void print_free_list(void);
