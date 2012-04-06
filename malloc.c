@@ -355,9 +355,12 @@ void *calloc(size_t nmemb, size_t size){
 		tot_mem = MIN_MAL_SIZE;
 	}
 	
-	mem = malloc(tot_mem);
-
-	return memset(mem, '\0', tot_mem);
+	if( (mem = malloc(tot_mem)) != NULL){
+		return memset(mem, '\0', tot_mem);
+	}
+	else {
+		return NULL;
+	}
 }
 
 void *realloc(void *ptr, size_t size){
@@ -408,6 +411,10 @@ void *realloc(void *ptr, size_t size){
 	else {
  		// diff_size < 0, we need a new larger chunk
 		void *new_mem = malloc(size);
+	
+		if(new_mem == NULL){
+			return NULL;
+		}
 		
 		memcpy(new_mem, ptr, size);
 
