@@ -402,6 +402,7 @@ void *realloc(void *ptr, size_t size){
 	size_t new_chunk_size;
 	long long int size_diff;
 	void *mem;
+	
 	if(ptr == NULL){
 		return malloc(size);
 	}
@@ -411,7 +412,6 @@ void *realloc(void *ptr, size_t size){
 		return NULL;
 	}
 
-	/*
 	if(size < MIN_MAL_SIZE){
 		size = MIN_MAL_SIZE;
 	}
@@ -435,6 +435,11 @@ void *realloc(void *ptr, size_t size){
 		new_free_chunk->size = size_diff;
 		new_free_chunk->used = false;
 		list_add(&(new_free_chunk->free_list), &free_list);
+
+		if(new_free_chunk != heap_tail){
+			malloc_chunk_t *after_new_free_chunk = (malloc_chunk_t *)((char *)new_free_chunk + new_free_chunk->size);
+			after_new_free_chunk->prev_size = new_free_chunk->size;
+		}
 		
 		return chunk2mem(target_chunk);
 	}
@@ -443,10 +448,7 @@ void *realloc(void *ptr, size_t size){
 		return chunk2mem(target_chunk);
 	}
 	else {
- 	*/
 		// diff_size < 0, we need a new larger chunk
-	
-	target_chunk = mem2chunk(ptr);
 
 		void *new_mem = malloc(size);
 	
@@ -459,5 +461,5 @@ void *realloc(void *ptr, size_t size){
 		free(ptr);
 
 		return new_mem;
-	//}
+	}
 }
