@@ -323,28 +323,24 @@ static void shrink_brk(void){
  * @size: size of requested memmory in bytes
  */ 
 void *malloc(size_t size){
-	int sz;
 	malloc_chunk_t *worst_fit_chunk;
 
 	// Check request in bounds
 	if(size < MIN_MAL_SIZE){
-		sz = MIN_MAL_SIZE;
-	}
-	else {
-		sz = size;
+		size = MIN_MAL_SIZE;
 	}
 	
 	// Pad size to maintain byte alignment
-	sz += (BYTE_ALIGNMENT - (sz % BYTE_ALIGNMENT));
+	size += (BYTE_ALIGNMENT - (size % BYTE_ALIGNMENT));
 
 	// Try to find a free chunk to fullfill request
-	if( (worst_fit_chunk = get_worst_fit_chunk(sz)) == NULL){
+	if( (worst_fit_chunk = get_worst_fit_chunk(size)) == NULL){
  		// No free chunks work, increase brk, return ptr to new mem
-		return (void *) sys_malloc(sz);
+		return (void *) sys_malloc(size);
 	}
 	else {
  		// Found a free chunk, use it to fullfill request, split if possible 	
-		return (void *) use_free_chunk(worst_fit_chunk, sz);
+		return (void *) use_free_chunk(worst_fit_chunk, size);
 	}
 }
 
@@ -400,7 +396,6 @@ void *calloc(size_t nmemb, size_t size){
 void *realloc(void *ptr, size_t size){
 	malloc_chunk_t *target_chunk;
 	size_t new_chunk_size;
-	long long int size_diff;
 	void *mem;
 	
 	if(ptr == NULL){
@@ -418,7 +413,6 @@ void *realloc(void *ptr, size_t size){
 
 	target_chunk = mem2chunk(ptr);
 	new_chunk_size = CALC_CHUNK_SIZE(size);
-	size_diff = target_chunk->size - new_chunk_size;
 
 	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE) ){
 		//split chunk and free extra
@@ -432,7 +426,7 @@ void *realloc(void *ptr, size_t size){
 		}
 
 		new_free_chunk->prev_size = target_chunk->size;
-		new_free_chunk->size = size_diff;
+		new_free_chunk->size = target_chunk->size - new_chunk_size;
 		new_free_chunk->used = false;
 		list_add(&(new_free_chunk->free_list), &free_list);
 
@@ -449,7 +443,6 @@ void *realloc(void *ptr, size_t size){
 	}
 	else {
 		// diff_size < 0, we need a new larger chunk
-
 		void *new_mem = malloc(size);
 	
 		if(new_mem == NULL){
