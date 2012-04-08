@@ -239,7 +239,7 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 	if( (target_chunk == heap_head) && (target_chunk == heap_tail)){
 		return;
 	}
-	/*
+	
 	// chunk is not at the end of heap space, so there is def. a chunk following it
 	if(target_chunk != heap_tail){
 		next_chunk = (malloc_chunk_t *)((char *)target_chunk + target_chunk->size);
@@ -257,7 +257,7 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 			}
 		}
 	}
-	*/
+	// chunk is not at the beginning of heap space, so there is def. a chunk preceeding it
 	if(target_chunk != heap_head){
 		prev_chunk = (malloc_chunk_t *)(((char *)target_chunk) - target_chunk->prev_size);
 		if(!prev_chunk->used){
@@ -375,7 +375,7 @@ void free(void *ptr){
 
 	merge_adjacent(target_chunk);
 
-	//shrink_brk();
+	shrink_brk();
 
 	return;
 }
