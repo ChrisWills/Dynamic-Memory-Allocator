@@ -65,7 +65,8 @@ static malloc_chunk_t *heap_tail = NULL;
  */
 void print_free_list(void){
 	malloc_chunk_t *cur_chunk;
-
+	printf("FREE LIST\n");
+	printf("addr of free_list: %lu\n", &free_list);
 	printf("sizeof(malloc_chunk_t) = %lu\n", sizeof(malloc_chunk_t));
 	int list_len = 0;
 	list_for_each_entry(cur_chunk, &free_list, free_list){
@@ -74,6 +75,40 @@ void print_free_list(void){
 	}
 	printf("list_len: %d\n", list_len);
 }
+/**
+ * print_heap_chunks
+ *
+ */
+void print_heap_chunks(void){
+	malloc_chunk_t *cur_chunk;
+
+	if(!heap_head){
+		printf("NO HEAP YET!\n");
+		return;
+	}
+	
+	printf("HEAP CHUNKS\n");
+	printf("addr of free_list: %lu\n", &free_list);
+	cur_chunk = heap_head;
+	size_t prev_size = 0;
+
+	while(cur_chunk != heap_tail){
+		if(prev_size != cur_chunk->prev_size){
+			printf("PREV_SIZE INCORRECT!!!\n");
+			exit(1);
+		}
+		prev_size = cur_chunk->size;
+		printf("chunk: size = %ld, prev_size: %ld, used: %d, self: %ld next: %ld, prev: %ld\n", (long int) cur_chunk->size, cur_chunk->prev_size, cur_chunk->used, cur_chunk, cur_chunk->free_list.next, cur_chunk->free_list.prev);
+		cur_chunk = (malloc_chunk_t *) (((char *)cur_chunk) + cur_chunk->size);	
+	}
+
+	printf("chunk: size = %ld, prev_size: %ld, used: %d, self: %ld next: %ld, prev: %ld\n", (long int) cur_chunk->size, cur_chunk->prev_size, cur_chunk->used, cur_chunk, cur_chunk->free_list.next, cur_chunk->free_list.prev);
+
+}
+
+
+
+
 #endif
 
 /**
@@ -94,12 +129,14 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 		return NULL;
 	}
 
+	//print_heap_chunks();
 	new_free_chunk_size = target_chunk->size - CALC_CHUNK_SIZE(size);
 
 	// If chunk is big enough split it and add unused portion back to free_list
 	if(new_free_chunk_size >= MIN_CHUNK_SIZE){
+		malloc_chunk_t *after_new_free_chunk;
 		target_chunk->size = CALC_CHUNK_SIZE(size);
-		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
+		new_free_chunk = (malloc_chunk_t *) (((char *)target_chunk) + target_chunk->size);
 
 		if(target_chunk == heap_tail){
 			heap_tail = new_free_chunk;
@@ -109,9 +146,14 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 		new_free_chunk->size = new_free_chunk_size;
 		new_free_chunk->used = false;   
 		list_add(&(new_free_chunk->free_list), &free_list);	
+		if(new_free_chunk != heap_tail){
+			after_new_free_chunk = (malloc_chunk_t *)((char *)new_free_chunk + new_free_chunk->size);
+			after_new_free_chunk->prev_size = new_free_chunk->size;
+		}
 	}
 
 	target_chunk->used = true;
+	//print_heap_chunks();
 	return chunk2mem(target_chunk);
 }
 
@@ -120,10 +162,12 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
  * @size: size of requested memmory in bytes
  */
 static void *sys_malloc(size_t size){
+	//printf("sys_malloc()\n");
 	size_t new_chunk_size;
 	malloc_chunk_t *new_chunk_ptr;
 	size_t brk_increase;
 
+	//print_heap_chunks();
 
 	new_chunk_size = CALC_CHUNK_SIZE(size);
 
@@ -139,14 +183,13 @@ static void *sys_malloc(size_t size){
 		return NULL;
 	}
 
+	// Setup chunk metadata 
+	new_chunk_ptr->size = brk_increase;
+	new_chunk_ptr->used = false;
+	
 	// first call to malloc(), set heap start for later
 	if(heap_head == NULL){
 		heap_head = new_chunk_ptr;
-	}
-
-	// Setup chunk metadata 
-	new_chunk_ptr->size = brk_increase;
-	if(heap_tail == NULL){
 		new_chunk_ptr->prev_size = 0;
 		heap_tail = new_chunk_ptr;
 	}
@@ -154,7 +197,8 @@ static void *sys_malloc(size_t size){
 		new_chunk_ptr->prev_size = heap_tail->size;
 		heap_tail = new_chunk_ptr;
 	}
-	
+
+//	print_heap_chunks();
 	return (void *) use_free_chunk(new_chunk_ptr, size);
 }
 
@@ -164,6 +208,7 @@ static void *sys_malloc(size_t size){
  * @size: size of memmory request
  */
 static malloc_chunk_t *get_worst_fit_chunk(size_t size){
+	//printf("get_worst_fit_chunk()\n");
 	size_t min_chunk_size = CALC_CHUNK_SIZE(size);
 	size_t worst_fit_size = 0;
 	malloc_chunk_t *worst_fit_chunk = NULL;
@@ -171,6 +216,15 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
 	
 	// find largest chunk that can service request, if it exists
 	list_for_each_entry(cur_chunk, &free_list, free_list){
+		// DEBUG
+	/*	
+		if(!cur_chunk || cur_chunk >= sbrk(0)){
+			//print_free_list();
+			print_heap_chunks();
+			exit(1);
+		}
+	*/
+		// DEBUG
 		if(cur_chunk->size >= min_chunk_size && cur_chunk->size > worst_fit_size){
 			worst_fit_size = cur_chunk->size;
 			worst_fit_chunk = cur_chunk;
@@ -180,8 +234,10 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
 	// if we found a suitable chunk, remove from free_list and return it
 	if(worst_fit_chunk != NULL){
 		__list_del_entry(&(worst_fit_chunk->free_list));
+		worst_fit_chunk->used = true;
 	}
 
+	//print_heap_chunks();
 	// return NULL if no suitable chunk was found
 	return worst_fit_chunk;
 }
@@ -203,8 +259,9 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 	if( (target_chunk == heap_head) && (target_chunk == heap_tail)){
 		return;
 	}
+	/*
 	// chunk is not at the end of heap space, so there is def. a chunk following it
-	if(!(target_chunk == heap_tail)){
+	if(target_chunk != heap_tail){
 		next_chunk = (malloc_chunk_t *)((char *)target_chunk + target_chunk->size);
 		
 		// if next chunk is free merge with target
@@ -220,27 +277,33 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 			}
 		}
 	}
-		
-/*	
+	*/
 	// chunk is not at the head of heap space, so a chunk def. preceeds it
 	// BUG IN THIS SECTION - START
-	if(!(target_chunk == heap_head)){
-		prev_chunk = (malloc_chunk_t *)((char *)target_chunk - target_chunk->prev_size);
-
+	
+	if(target_chunk != heap_head){
+		prev_chunk = (malloc_chunk_t *)(((char *)target_chunk) - target_chunk->prev_size);
+		//printf("PREV_CHUNK: %ld\n", prev_chunk);
 		if(!prev_chunk->used){
+			//printf("merging ");
 			__list_del_entry(&(target_chunk->free_list));
 			prev_chunk->size += target_chunk->size;
 			if(target_chunk == heap_tail){
 				heap_tail = prev_chunk;
+				//printf("target = heap_tail\n");
 			}
 			else {
-				next_next_chunk = (malloc_chunk_t *)((char *)prev_chunk + prev_chunk->size);
+				next_next_chunk = (malloc_chunk_t *)(((char *)prev_chunk) + prev_chunk->size);
 				next_next_chunk->prev_size = prev_chunk->size;
+				//printf("target != heap_tail\n");
+				//printf("target chunk addr: %ld prev chunk addr: %ld heap_tail addr: %ld next_next_chunk: %ld\n", target_chunk, prev_chunk, heap_tail, next_next_chunk);
+				//print_heap_chunks();
+				//printf("target chunk addr: %ld prev chunk addr: %ld heap_tail addr: %ld next_next_chunk: %ld\n", target_chunk, prev_chunk, heap_tail, next_next_chunk);
 			}
 		}
 	}
+
 	// BUG IN THIS SECTION - END
-*/
 	return;
 }
 
@@ -266,7 +329,7 @@ static void shrink_brk(void){
 		if(heap_tail->prev_size == 0){
 			break;
 		}
-		prev_chunk = (malloc_chunk_t *) ((char *) heap_tail - heap_tail->prev_size);
+		prev_chunk = (malloc_chunk_t *) (((char *) heap_tail) - heap_tail->prev_size);
 	}
 	
 	if(shrink_counter >= MIN_BRK_DECREASE){
@@ -277,7 +340,7 @@ static void shrink_brk(void){
 			heap_head = NULL;
 		}
 		else {
-			heap_tail = (malloc_chunk_t *) ((char *)heap_tail - heap_tail->prev_size);
+			heap_tail = (malloc_chunk_t *) (((char *)heap_tail) - heap_tail->prev_size);
 		}
 		
 		sbrk(-1*shrink_counter);
@@ -291,9 +354,11 @@ static void shrink_brk(void){
  * @size: size of requested memmory in bytes
  */ 
 void *malloc(size_t size){
+	//printf("malloc()\n");
 	int sz;
 	malloc_chunk_t *worst_fit_chunk;
 
+	//print_heap_chunks();
 	//fprintf(stderr,"calling mymalloc()\n");
 
 	// Check request in bounds
@@ -325,6 +390,7 @@ void *malloc(size_t size){
  * @ptr: pointer to the memory block that was malloc()'ed.
  */
 void free(void *ptr){
+	//printf("free()\n");
 	malloc_chunk_t *target_chunk;
 
 	if(ptr == NULL){
@@ -343,14 +409,20 @@ void free(void *ptr){
 	target_chunk->used = false;
 	list_add(&(target_chunk->free_list), &free_list);	
 
+	//printf("TARGET CHUNK: %ld\n", target_chunk);
+	//print_free_list();
+	//print_heap_chunks();
+		
 	merge_adjacent(target_chunk);
+	//print_heap_chunks();
 
-	shrink_brk();
+	//shrink_brk();
 
 	return;
 }
 
 void *calloc(size_t nmemb, size_t size){
+	//printf("333\n");
 	size_t tot_mem = nmemb * size;
 	void *mem;
 	
@@ -359,7 +431,8 @@ void *calloc(size_t nmemb, size_t size){
 	}
 	
 	if( (mem = malloc(tot_mem)) != NULL){
-		return memset(mem, '\0', tot_mem);
+		memset(mem, '\0', tot_mem);
+		return mem; 
 	}
 	else {
 		return NULL;
@@ -371,7 +444,7 @@ void *realloc(void *ptr, size_t size){
 	size_t new_chunk_size;
 	long long int size_diff;
 	void *mem;
-
+	//printf("realloc()\n");
 	if(ptr == NULL){
 		return malloc(size);
 	}
@@ -381,6 +454,7 @@ void *realloc(void *ptr, size_t size){
 		return NULL;
 	}
 
+	/*
 	if(size < MIN_MAL_SIZE){
 		size = MIN_MAL_SIZE;
 	}
@@ -389,7 +463,6 @@ void *realloc(void *ptr, size_t size){
 	new_chunk_size = CALC_CHUNK_SIZE(size);
 	size_diff = target_chunk->size - new_chunk_size;
 
-	/*
 	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE) ){
 		//split chunk and free extra
 		malloc_chunk_t *new_free_chunk;
@@ -415,13 +488,16 @@ void *realloc(void *ptr, size_t size){
 	else {
  	*/
 		// diff_size < 0, we need a new larger chunk
+	
+	target_chunk = mem2chunk(ptr);
+
 		void *new_mem = malloc(size);
 	
 		if(new_mem == NULL){
 			return NULL;
 		}
-		
-		memcpy(new_mem, ptr, size);
+	
+		memcpy(new_mem, ptr, target_chunk->size - sizeof(malloc_chunk_t) - PAD_SIZE);
 
 		free(ptr);
 
