@@ -1,0 +1,2 @@
+set exec-wrapper env 'LD_PRELOAD=./libmymalloc.so'
+run
