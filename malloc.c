@@ -59,6 +59,13 @@ static malloc_chunk_t *heap_head = NULL;
 /// Last chunk on the heap
 static malloc_chunk_t *heap_tail = NULL;
 
+/// Internal functions
+static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size);
+static void *sys_malloc(size_t size);
+static malloc_chunk_t *get_worst_fit_chunk(size_t size);
+static void merge_adjacent(malloc_chunk_t *target_chunk);
+static void shrink_brk(void);
+
 #ifdef MALLOC_DEBUG
 /**
  * print_free_list - Prints out "chunk <size>\n" for each chunk in the free list. Used for debugging only.
