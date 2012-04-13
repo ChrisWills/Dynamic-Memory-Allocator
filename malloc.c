@@ -60,6 +60,7 @@ static malloc_chunk_t *heap_head = NULL;
 static malloc_chunk_t *heap_tail = NULL;
 
 /// Internal functions
+static void resize_chunk(malloc_chunk_t *target_chunk, size_t size);
 static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size);
 static void *sys_malloc(size_t size);
 static malloc_chunk_t *get_worst_fit_chunk(size_t size);
@@ -115,6 +116,37 @@ void print_heap_chunks(void){
 #endif
 
 /**
+ * resize_chunk - shrink @target_chunk to minimal size to fullfill @size memory request
+ *				 and create new free chunk in the remaining space and add it to free list.
+ * @target_chunk - chunk to split
+ * @size - memory request to fullfill (target_chunk's new size will be CALC_CHUNK_SIZE(size))
+ */
+static void resize_chunk(malloc_chunk_t *target_chunk, size_t size){
+		size_t new_free_chunk_size;
+		malloc_chunk_t *after_new_free_chunk;
+		malloc_chunk_t *new_free_chunk;
+
+		new_free_chunk_size = target_chunk->size - CALC_CHUNK_SIZE(size);
+		target_chunk->size = CALC_CHUNK_SIZE(size);
+		new_free_chunk = (malloc_chunk_t *) (((char *)target_chunk) + target_chunk->size);
+
+		if(target_chunk == heap_tail){
+			heap_tail = new_free_chunk;
+		}
+		
+		new_free_chunk->prev_size = target_chunk->size;
+		new_free_chunk->size = new_free_chunk_size;
+		new_free_chunk->used = false;   
+		list_add(&(new_free_chunk->free_list), &free_list);	
+		
+		if(new_free_chunk != heap_tail){
+			after_new_free_chunk = (malloc_chunk_t *)((char *)new_free_chunk + new_free_chunk->size);
+			after_new_free_chunk->prev_size = new_free_chunk->size;
+		}
+		return;
+}
+
+/**
  * use_free_chunk - Given a free_chunk of adequate size, fullfill the size request with that chunk.
  * 					Split the chunk and put the unused portion back in the free_list if possible.
  * @free_chunk: adequate sized free chunk from free list
@@ -136,23 +168,7 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
 
 	// If chunk is big enough split it and add unused portion back to free_list
 	if(new_free_chunk_size >= MIN_CHUNK_SIZE){
-		malloc_chunk_t *after_new_free_chunk;
-		target_chunk->size = CALC_CHUNK_SIZE(size);
-		new_free_chunk = (malloc_chunk_t *) (((char *)target_chunk) + target_chunk->size);
-
-		if(target_chunk == heap_tail){
-			heap_tail = new_free_chunk;
-		}
-		
-		new_free_chunk->prev_size = target_chunk->size;
-		new_free_chunk->size = new_free_chunk_size;
-		new_free_chunk->used = false;   
-		list_add(&(new_free_chunk->free_list), &free_list);	
-		
-		if(new_free_chunk != heap_tail){
-			after_new_free_chunk = (malloc_chunk_t *)((char *)new_free_chunk + new_free_chunk->size);
-			after_new_free_chunk->prev_size = new_free_chunk->size;
-		}
+		resize_chunk(target_chunk, size);
 	}
 
 	target_chunk->used = true;
@@ -422,26 +438,7 @@ void *realloc(void *ptr, size_t size){
 	new_chunk_size = CALC_CHUNK_SIZE(size);
 
 	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE) ){
-		//split chunk and free extra
-		malloc_chunk_t *new_free_chunk;
-		
-		target_chunk->size = new_chunk_size;
-		new_free_chunk = (malloc_chunk_t *) ((char *)target_chunk + target_chunk->size);
-
-		if(target_chunk == heap_tail){
-			heap_tail = new_free_chunk;
-		}
-
-		new_free_chunk->prev_size = target_chunk->size;
-		new_free_chunk->size = target_chunk->size - new_chunk_size;
-		new_free_chunk->used = false;
-		list_add(&(new_free_chunk->free_list), &free_list);
-
-		if(new_free_chunk != heap_tail){
-			malloc_chunk_t *after_new_free_chunk = (malloc_chunk_t *)((char *)new_free_chunk + new_free_chunk->size);
-			after_new_free_chunk->prev_size = new_free_chunk->size;
-		}
-		
+		resize_chunk(target_chunk, size);
 		return chunk2mem(target_chunk);
 	}
 	else if(target_chunk->size > new_chunk_size && target_chunk->size < (new_chunk_size + MIN_CHUNK_SIZE)){
