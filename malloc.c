@@ -4,8 +4,6 @@
  * License: GPLv2 (see COPYING)
  * File: malloc.c
  */
-
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -13,7 +11,6 @@
 #include <string.h>
 #include "list.h"
 #include "malloc.h"
-
 
 /// Fullfill all requests with the given byte alignment
 #define BYTE_ALIGNMENT 8
@@ -27,10 +24,10 @@
 /// Minimum brk decrease in bytes
 #define MIN_BRK_DECREASE 8192
 
-/// memmory chunk metadata structure
+/// Memory chunk metadata structure
 typedef struct {
 	size_t prev_size;
-	size_t size; 					// mem requested + this struct overhead
+	size_t size; 					// (mem requested + padding) + this struct overhead
 	struct list_head free_list;
 	short int used;					// used flag - TODO merge this into a bit field inside size
 } malloc_chunk_t;
@@ -117,7 +114,7 @@ void print_heap_chunks(void){
 
 /**
  * resize_chunk - shrink @target_chunk to minimal size to fullfill @size memory request
- *				 and create new free chunk in the remaining space and add it to free list.
+ *                and create new free chunk in the remaining space and add it to free list.
  * @target_chunk - chunk to split
  * @size - memory request to fullfill (target_chunk's new size will be CALC_CHUNK_SIZE(size))
  */
@@ -180,7 +177,6 @@ static void *use_free_chunk(malloc_chunk_t *target_chunk, size_t size){
  * @size: size of requested memmory in bytes
  */
 static void *sys_malloc(size_t size){
-	//printf("sys_malloc()\n");
 	size_t new_chunk_size;
 	malloc_chunk_t *new_chunk_ptr;
 	size_t brk_increase;
@@ -203,7 +199,7 @@ static void *sys_malloc(size_t size){
 	new_chunk_ptr->size = brk_increase;
 	new_chunk_ptr->used = false;
 	
-	// first call to malloc(), set heap start for later
+	// First call to malloc(), set heap_head and heap_tail for later calls
 	if(heap_head == NULL){
 		heap_head = new_chunk_ptr;
 		new_chunk_ptr->prev_size = 0;
@@ -228,7 +224,7 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
 	malloc_chunk_t *worst_fit_chunk = NULL;
 	malloc_chunk_t *cur_chunk;
 	
-	// find largest chunk that can service request, if it exists
+	// Find largest chunk that can service request, if it exists
 	list_for_each_entry(cur_chunk, &free_list, free_list){
 		if(cur_chunk->size >= min_chunk_size && cur_chunk->size > worst_fit_size){
 			worst_fit_size = cur_chunk->size;
@@ -236,7 +232,7 @@ static malloc_chunk_t *get_worst_fit_chunk(size_t size){
 		}
 	}
 	
-	// if we found a suitable chunk, remove from free_list and return it
+	// If we found a suitable chunk, remove from free_list and return it
 	if(worst_fit_chunk != NULL){
 		__list_del_entry(&(worst_fit_chunk->free_list));
 		worst_fit_chunk->used = true;
@@ -258,16 +254,16 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 		return;
 	}
 
-	// target is the only free chunk - nothing to do
+	// Target is the only free chunk - nothing to do
 	if( (target_chunk == heap_head) && (target_chunk == heap_tail)){
 		return;
 	}
 	
-	// chunk is not at the end of heap space, so there is def. a chunk following it
+	// Chunk is not at the end of heap space, so there is def. a chunk following it
 	if(target_chunk != heap_tail){
 		next_chunk = (malloc_chunk_t *)((char *)target_chunk + target_chunk->size);
 		
-		// if next chunk is free merge with target
+		// If next chunk is free merge with target
 		if(!next_chunk->used){
 			__list_del_entry(&(next_chunk->free_list));
 			target_chunk->size += next_chunk->size;
@@ -280,7 +276,7 @@ static void merge_adjacent(malloc_chunk_t *target_chunk){
 			}
 		}
 	}
-	// chunk is not at the beginning of heap space, so there is def. a chunk preceeding it
+	// Chunk is not at the beginning of heap space, so there is def. a chunk preceeding it
 	if(target_chunk != heap_head){
 		prev_chunk = (malloc_chunk_t *)(((char *)target_chunk) - target_chunk->prev_size);
 		if(!prev_chunk->used){
@@ -369,8 +365,8 @@ void *malloc(size_t size){
 
 /**
  * free -	Custom free() that works with the above custom malloc().
- *				Double free()s are detected but invalid pointers are not 
- *				and result in undefined (aka very bad) behavior.
+ *          Double free()s are detected but invalid pointers are not 
+ *          and result in undefined (aka very bad) behavior.
  * @ptr: pointer to the memory block that was malloc()'ed.
  */
 void free(void *ptr){
@@ -384,7 +380,7 @@ void free(void *ptr){
 
 #ifdef MALLOC_DETECT_DOUBLE_FREE
 	if(!target_chunk->used){
-			fprintf(stderr, "ERROR in my_free(): double-free detected\n");
+			fprintf(stderr, "ERROR in free(): double-free detected\n");
 			exit(1);
 			return;
 	}
@@ -437,16 +433,17 @@ void *realloc(void *ptr, size_t size){
 	target_chunk = mem2chunk(ptr);
 	new_chunk_size = CALC_CHUNK_SIZE(size);
 
-	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE) ){
+	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE)){
+		// Shrink chunk and free extra space
 		resize_chunk(target_chunk, size);
 		return chunk2mem(target_chunk);
 	}
 	else if(target_chunk->size > new_chunk_size && target_chunk->size < (new_chunk_size + MIN_CHUNK_SIZE)){
-		//enough space in current chunk, do nothing
+		// Enough space in current chunk, do nothing
 		return chunk2mem(target_chunk);
 	}
 	else {
-		// diff_size < 0, we need a new larger chunk
+		// Need a new larger chunk
 		void *new_mem = malloc(size);
 	
 		if(new_mem == NULL){
