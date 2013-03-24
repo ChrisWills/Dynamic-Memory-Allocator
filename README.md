@@ -1,13 +1,16 @@
 NAME
+----
 		A dynamic memory allocator using the worst fit algorithm
 
 SYNOPSIS
+--------
 		void *calloc(size_t nmemb, size_t size);
 		void *malloc(size_t size);
 		void free(void *ptr);
 		void *realloc(void *ptr, size_t size);
 
 DESCRIPTION
+-----------
 		malloc() allocates size bytes and returns a pointer to the
 		allocated memory. The pointer returned can later be passed to
 		free() which de-allocates the memory. malloc() returns
@@ -33,13 +36,15 @@ DESCRIPTION
 		the new location. realloc() returns a ptr to the resized
 		memory block. 
 
-WARNING	
+WARNING
+-------
 		Currently, this implementation is NOT thread safe. Thus using
 		this library with programs that are linked against libpthread
 		will have undefined and most likely wacky behaviors. This will
 		be fixed in the future.
 
 FEATURES
+--------
 		* All memory segments returned by malloc() are 8-byte
 		  aligned.
 		* Double-frees are caught and handled with an error message
@@ -48,11 +53,13 @@ FEATURES
 		* shrinks to minimum size.
 
 USAGE
+-----
 		This implementation of malloc() and free() is packaged as a
 		shared library. Linking to this library overrides the malloc()
 		and free() implementation in glibc.
 
 TODO
+----
 		* Optimize malloc_chunk_t struct for size by incorporating the
 		  'used' flag inside 'size' as a bit-field.  
 		* Include other optional memory chunk re-use algorithms
@@ -64,6 +71,7 @@ TODO
 		* Make all functions thread safe
 
 TESTING
+-------
 		The provided driver program will eventually be a comprehensive
 		test suite but currently the best way to test this library is
 		by forcing a known working binary to use it. This can be done
@@ -74,7 +82,7 @@ TESTING
 		command.
 		
 		Example:
-			LD_PRELOAD=./libmymalloc.so /bin/vi
+			`LD_PRELOAD=./libmymalloc.so /bin/vi`
 
 		The above method has proved to be an effective form of
 		testing.
