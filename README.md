@@ -36,13 +36,6 @@ new block being allocated and the contents of ptr copied to
 the new location. realloc() returns a ptr to the resized
 memory block. 
 
-WARNING
--------
-Currently, this implementation is NOT thread safe. Thus using
-this library with programs that are linked against libpthread
-will have undefined and most likely wacky behaviors. This will
-be fixed in the future.
-
 FEATURES
 --------
 * All memory segments returned by malloc() are 8-byte
@@ -68,18 +61,15 @@ TODO
   size tunable.
 * Write comprehensive test suite.
 * Set errno on allocation error to match the glibc API
-* Make all functions thread safe
 
 TESTING
 -------
-The provided driver program will eventually be a comprehensive
-test suite but currently the best way to test this library is
-by forcing a known working binary to use it. This can be done
-by setting the LD_PRELOAD environment variable. Recall that
-this implementation is currently not thread safe so choose a
-program that is not linked against libpthread. You can check
-what libraries a program is linked against with the ldd
-command.
+The provided driver program will eventually be a comprehensive test
+suite but currently the best way to test this library is by forcing a
+known working binary to use it. This can be done by setting the
+LD_PRELOAD environment variable.  This library is newly thread safe so
+preloading should work with any binary. You can check what libraries a
+program is linked against with the ldd command.
 
 Example:`LD_PRELOAD=./libmymalloc.so /bin/vi`
 
