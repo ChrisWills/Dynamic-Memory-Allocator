@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <string.h>
+#include <pthread.h>
 #include "list.h"
 #include "malloc.h"
 
@@ -55,6 +56,9 @@ static malloc_chunk_t *heap_head = NULL;
 
 /// Last chunk on the heap
 static malloc_chunk_t *heap_tail = NULL;
+
+/// Master lock
+static pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /// Internal functions
 static void resize_chunk(malloc_chunk_t *target_chunk, size_t size);
@@ -355,11 +359,19 @@ void *malloc(size_t size){
 	// Try to find a free chunk to fullfill request
 	if( (worst_fit_chunk = get_worst_fit_chunk(size)) == NULL){
  		// No free chunks work, increase brk, return ptr to new mem
-		return (void *) sys_malloc(size);
+ 		void *ret; 
+		pthread_mutex_lock(&master_lock);
+		ret = sys_malloc(size);
+		pthread_mutex_unlock(&master_lock);
+		return ret; 
 	}
 	else {
  		// Found a free chunk, use it to fullfill request, split if possible 	
-		return (void *) use_free_chunk(worst_fit_chunk, size);
+		void *ret;
+		pthread_mutex_lock(&master_lock);
+		ret = use_free_chunk(worst_fit_chunk, size);
+		pthread_mutex_unlock(&master_lock);
+		return ret;
 	}
 }
 
@@ -376,6 +388,8 @@ void free(void *ptr){
 		return;
 	}
 	
+	pthread_mutex_lock(&master_lock);	
+	
 	target_chunk = mem2chunk(ptr);
 
 #ifdef MALLOC_DETECT_DOUBLE_FREE
@@ -391,6 +405,8 @@ void free(void *ptr){
 	merge_adjacent(target_chunk);
 
 	shrink_brk();
+
+	pthread_mutex_unlock(&master_lock);
 
 	return;
 }
@@ -435,12 +451,20 @@ void *realloc(void *ptr, size_t size){
 
 	if(target_chunk->size >= (new_chunk_size + MIN_CHUNK_SIZE)){
 		// Shrink chunk and free extra space
+		void *ret;
+		pthread_mutex_lock(&master_lock);
 		resize_chunk(target_chunk, size);
-		return chunk2mem(target_chunk);
+		ret =  chunk2mem(target_chunk);
+		pthread_mutex_unlock(&master_lock);
+		return ret;
 	}
 	else if(target_chunk->size > new_chunk_size && target_chunk->size < (new_chunk_size + MIN_CHUNK_SIZE)){
 		// Enough space in current chunk, do nothing
-		return chunk2mem(target_chunk);
+		void *ret;
+		pthread_mutex_lock(&master_lock);
+		ret = chunk2mem(target_chunk);
+		pthread_mutex_unlock(&master_lock);
+		return ret;
 	}
 	else {
 		// Need a new larger chunk
@@ -449,11 +473,14 @@ void *realloc(void *ptr, size_t size){
 		if(new_mem == NULL){
 			return NULL;
 		}
-	
+			
+		pthread_mutex_lock(&master_lock);
 		memcpy(new_mem, ptr, target_chunk->size - sizeof(malloc_chunk_t) - PAD_SIZE);
+		pthread_mutex_unlock(&master_lock);
 
 		free(ptr);
 
 		return new_mem;
 	}
 }
+
