@@ -27,7 +27,7 @@ pointer is passed, free() returns immediately with no side
 effects.
 
 calloc() allocates enough space for nmemb items of size bytes
-each and the initializes the memmory with zeros.
+each and the initializes the memory with zeros.
 
 realloc() acts just like malloc() if ptr is NULL and just like
 free() if size is 0. Otherwise, realloc() resizes the memory
@@ -38,12 +38,9 @@ memory block.
 
 FEATURES
 --------
-* All memory segments returned by malloc() are 8-byte
-  aligned.
-* Double-frees are caught and handled with an error message
-  and immediate program exit.  
-* As blocks of memory are freed, the heap size
-* shrinks to minimum size.
+* All memory segments returned by malloc() are 8-byte aligned.
+* Double-frees are caught and handled with an error message and immediate program exit.  
+* As blocks of memory are freed, the heap size shrinks to minimum size (we probably shouldn't do this on every free...but we do).
 
 USAGE
 -----
